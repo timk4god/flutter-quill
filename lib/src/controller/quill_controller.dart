@@ -20,6 +20,7 @@ import '../editor/raw_editor/raw_editor_state.dart';
 import '../editor_toolbar_controller_shared/clipboard/clipboard_service_provider.dart';
 import 'clipboard/quill_controller_paste.dart';
 import 'clipboard/quill_controller_rich_paste.dart';
+import 'clipboard/selection_html.dart';
 import 'quill_controller_config.dart';
 
 typedef ReplaceTextCallback = bool Function(int index, int len, Object? data);
@@ -511,6 +512,7 @@ class QuillController extends ChangeNotifier {
   /// Clipboard caches last copy to allow paste with styles. Static to allow paste between multiple instances of editor.
   static String _pastePlainText = '';
   static Delta _pasteDelta = Delta();
+  static String _pasteHtml = '';
   static List<OffsetValue> _pasteStyleAndEmbed = <OffsetValue>[];
 
   String get pastePlainText => _pastePlainText;
@@ -534,8 +536,14 @@ class QuillController extends ChangeNotifier {
   }
 
   @experimental
-  bool clipboardSelection(bool copy) {
-    copiedImageUrl = null;
+  bool clipboardSelection(
+    bool copy, {
+    void Function(String text, String html)? onCopy,
+  }) {
+    if (!selection.isValid || selection.isCollapsed || (!copy && readOnly)) {
+      return false;
+    }
+    _copiedImageUrl = null;
 
     /// Get the text for the selected region and expand the content of Embedded objects.
     _pastePlainText = document.getPlainText(
@@ -549,28 +557,38 @@ class QuillController extends ChangeNotifier {
 
     /// Get the deltas for the selection so they can be pasted into a QuillEditor with styles and embeds retained.
     _pasteDelta = document.toDelta().slice(selection.start, selection.end);
+    _pasteHtml = selectionToHtml(this);
 
-    if (!selection.isCollapsed) {
-      Clipboard.setData(ClipboardData(text: _pastePlainText));
-      if (!copy) {
-        if (readOnly) return false;
-        final sel = selection;
-        replaceText(
-          sel.start,
-          sel.end - sel.start,
-          '',
-          TextSelection.collapsed(offset: sel.start),
-        );
-      }
-      return true;
+    if (onCopy != null) {
+      onCopy(_pastePlainText, _pasteHtml);
+    } else {
+      ClipboardServiceProvider.instance.copyRichText(
+        _pastePlainText,
+        _pasteHtml,
+      );
     }
-    return false;
+    if (!copy) {
+      final sel = selection;
+      replaceText(
+        sel.start,
+        sel.end - sel.start,
+        '',
+        TextSelection.collapsed(offset: sel.start),
+      );
+    }
+    return true;
   }
 
   /// Returns whether paste operation was handled here.
   /// [updateEditor] is called if paste operation was successful.
+  /// Supply [plainText] and optional [html] when the browser paste event already
+  /// provides the content. Otherwise, the system clipboard is read as before.
   @experimental
-  Future<bool> clipboardPaste({void Function()? updateEditor}) async {
+  Future<bool> clipboardPaste({
+    void Function()? updateEditor,
+    String? html,
+    String? plainText,
+  }) async {
     if (readOnly || !selection.isValid) return true;
 
     final clipboardConfig = config.clipboardConfig;
@@ -578,6 +596,28 @@ class QuillController extends ChangeNotifier {
     if (await clipboardConfig?.onClipboardPaste?.call() == true) {
       updateEditor?.call();
       return true;
+    }
+
+    // Browser paste events already contain the payload. Do not read the system
+    // clipboard again (which can prompt for permission or paste the text twice).
+    if (plainText != null) {
+      final isInternal = plainText == _pastePlainText && html == _pasteHtml;
+      if (!isInternal &&
+          (clipboardConfig?.enableExternalRichPaste ?? true) &&
+          html != null &&
+          html.isNotEmpty &&
+          await pasteHTML(html: html)) {
+        updateEditor?.call();
+        return true;
+      }
+      if (plainText.isEmpty) return false;
+      final handled = pastePlainTextOrDelta(
+        await getTextToPaste(plainText),
+        pastePlainText: isInternal ? _pastePlainText : '',
+        pasteDelta: _pasteDelta,
+      );
+      if (handled) updateEditor?.call();
+      return handled;
     }
 
     final pasteInternalImageSuccess = await _pasteInternalImage();
@@ -644,10 +684,10 @@ class QuillController extends ChangeNotifier {
     // Only process plain text if no image/gif was pasted.
     // Snapshot the input before using `await`.
     // See https://github.com/flutter/flutter/issues/11427
-    final plainText = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+    final clipboardText = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
 
-    if (plainText != null) {
-      final plainTextToPaste = await getTextToPaste(plainText);
+    if (clipboardText != null) {
+      final plainTextToPaste = await getTextToPaste(clipboardText);
       if (pastePlainTextOrDelta(
         plainTextToPaste,
         pastePlainText: _pastePlainText,

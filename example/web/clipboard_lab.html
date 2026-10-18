@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clipboard interoperability lab</title>
+<style>
+  body { margin:0; font:16px system-ui; background:#f5f6f8; color:#17202a }
+  header { padding:14px 20px; background:#fff; border-bottom:1px solid #ccc }
+  main { display:grid; grid-template-columns:2fr 1fr; height:calc(100vh - 84px); gap:16px; padding:16px; box-sizing:border-box }
+  iframe { width:100%; height:100%; border:1px solid #ccc; background:white }
+  section { overflow:auto }
+  [contenteditable], textarea { background:white; border:1px solid #aaa; padding:16px; box-sizing:border-box; width:100%; min-height:190px }
+  textarea { font:14px monospace }
+  @media(max-width:800px) { main { grid-template-columns:1fr; height:auto } iframe { height:700px } }
+</style>
+<header><strong>Local clipboard test · build 2 — Google Docs import fix</strong><br>Copy and paste between FlutterQuill, the browser editor below, and your own apps.</header>
+<main>
+  <iframe src="index.html" title="FlutterQuill" allow="clipboard-read; clipboard-write"></iframe>
+  <section>
+    <h3>Browser rich-text editor</h3>
+    <p>This uses the browser's normal editing behavior. Select its text and paste it into FlutterQuill, then try the reverse.</p>
+    <div contenteditable="true" aria-label="Browser rich-text editor">
+      <h2>A heading from another editor</h2>
+      <p>A <strong>bold</strong> and <em>italic</em> paragraph.</p>
+      <ul><li>First bullet<ul><li>Nested bullet</li></ul></li><li>Second bullet</li></ul>
+      <ol><li>First numbered item</li><li>Second numbered item</li></ol>
+    </div>
+    <h3>Native plain-text field</h3>
+    <textarea aria-label="Native plain-text field" placeholder="Pasting here must produce readable text, without HTML tags."></textarea>
+    <p>Also try cut, undo, reversed selections, a partial heading, and switching between the two Flutter editors.</p>
+    <details><summary>Local paste diagnostic</summary><pre id="paste-diagnostic">Paste into FlutterQuill to see whether the browser supplied HTML.</pre></details>
+  </section>
+</main>
+<script>
+  const editorFrame = document.querySelector('iframe');
+  editorFrame.addEventListener('load', () => {
+    editorFrame.contentDocument.addEventListener('paste', event => {
+      const data = event.clipboardData;
+      if (!data) return;
+      const html = data.getData('text/html');
+      document.getElementById('paste-diagnostic').textContent =
+        'HTML supplied: ' + (html ? 'yes' : 'no') + '\n' +
+        'HTML characters: ' + html.length + '\n' +
+        'Plain-text characters: ' + data.getData('text/plain').length + '\n' +
+        'Google Docs wrapper: ' + (html.includes('docs-internal-guid-') ? 'yes' : 'no');
+    }, true);
+  });
+</script>
+</html>

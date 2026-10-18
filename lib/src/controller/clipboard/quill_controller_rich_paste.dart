@@ -4,6 +4,8 @@ library;
 // This file should not be exported as the APIs in it are meant for internal usage only
 
 import 'package:flutter/widgets.dart' show TextSelection;
+import 'package:flutter_quill_delta_from_html/flutter_quill_delta_from_html.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:meta/meta.dart';
 
@@ -18,7 +20,7 @@ extension QuillControllerRichPaste on QuillController {
   /// support it on the current platform.
   ///
   /// Return `true` if can paste or have pasted using HTML.
-  Future<bool> pasteHTML() async {
+  Future<bool> pasteHTML({String? html}) async {
     final clipboardService = ClipboardServiceProvider.instance;
 
     Future<String?> getHTML() async {
@@ -33,11 +35,22 @@ extension QuillControllerRichPaste on QuillController {
       return null;
     }
 
-    final htmlText = await getHTML();
+    final htmlText = html ?? await getHTML();
     if (htmlText != null) {
-      final htmlBody = html_parser.parse(htmlText).body?.outerHtml;
-      // ignore: deprecated_member_use_from_same_package
-      final clipboardDelta = DeltaX.fromHtml(htmlBody ?? htmlText);
+      final body = html_parser.parse(htmlText).body;
+      // Docs uses a neutral <b> around whole documents. Treating it as inline
+      // bold text flattens its paragraphs and lists in the HTML converter.
+      for (final wrapper
+          in body?.querySelectorAll('b[id^="docs-internal-guid-"]') ?? []) {
+        wrapper.replaceWith(html_parser.parseFragment(wrapper.innerHtml));
+      }
+      final htmlBody = body?.outerHtml;
+      final clipboardDelta = HtmlToDelta(
+        // The converter's default block test omits paragraphs, merging adjacent
+        // <p> elements. Keep its other block rules and include paragraphs.
+        isBlockValidator: (tag) => tag == 'p' || dom.Element.tag(tag).isBlock,
+      ).convert(htmlBody ?? htmlText);
+      if (clipboardDelta.isEmpty) return false;
 
       await _pasteDelta(clipboardDelta);
 

@@ -303,10 +303,18 @@ The plugin [`quill_native_bridge`](https://pub.dev/packages/quill_native_bridge)
     alt="An animated image of the rich text paste on macOS" width="600" />
 </p>
 
-> [!IMPORTANT]
-> Currently this feature is unsupported on the web.
-> See [issue #1998](https://github.com/singerdmx/flutter-quill/issues/1998) and [issue #2220](https://github.com/singerdmx/flutter-quill/issues/2220)
- for more details.
+On the web, copy and cut publish both HTML and plain text. Paste reads the browser
+event's HTML directly, with a plain-text fallback. Only the focused editor handles
+these events; image/file transfers retain their existing handling.
+
+For a local interoperability example, run `flutter run -d chrome -t lib/clipboard_demo.dart`
+from `example/`. To include a native browser editor and plain-text field alongside
+FlutterQuill, build that target with `flutter build web -t lib/clipboard_demo.dart --no-web-resources-cdn`,
+serve `build/web` over localhost, and open `/clipboard_lab.html`.
+
+Native app rich-paste support is unchanged. Native text copy still uses plain text
+unless a custom clipboard service can write HTML and plain text together. See the
+[clipboard audit](doc/clipboard-audit.md) for scope and verification details.
 
 ## 🌐 Translation
 

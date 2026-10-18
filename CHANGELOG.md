@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve headings, lists, and inline formatting when copying or pasting text in
+  the web editor. Browser events are scoped to the focused editor and include a
+  plain-text fallback. Empty HTML falls back to plain text without inserting an
+  empty Delta. Native clipboard behavior is preserved.
+- Unwrap Google Docs' neutral clipboard wrapper before HTML conversion and keep
+  adjacent paragraphs separate, preserving headings, list nesting, colors, and
+  genuine bold text. Require HTML converter 1.5.3 for its configurable block rules.
+
 ## [11.6.0] - 2026-09-16
 
 ### Added

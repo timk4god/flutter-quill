@@ -23,6 +23,8 @@ import '../../document/document.dart';
 import '../../document/nodes/block.dart';
 import '../../document/nodes/line.dart';
 import '../../document/nodes/node.dart';
+import '../../editor_toolbar_controller_shared/clipboard/web_clipboard_stub.dart'
+    if (dart.library.js_interop) '../../editor_toolbar_controller_shared/clipboard/web_clipboard.dart';
 import '../editor.dart';
 import '../widgets/cursor.dart';
 import '../widgets/default_styles.dart';
@@ -47,6 +49,7 @@ class QuillRawEditorState extends EditorState
         RawEditorStateTextInputClientMixin,
         RawEditorStateSelectionDelegateMixin {
   late final EditorKeyboardShortcutsActionsManager _shortcutActionsManager;
+  late final WebClipboard _webClipboard;
 
   final GlobalKey _editorKey = GlobalKey();
 
@@ -142,12 +145,17 @@ class QuillRawEditorState extends EditorState
 
   /// Paste text from [Clipboard].
   @override
-  Future<void> pasteText(SelectionChangedCause cause) async {
+  Future<void> pasteText(
+    SelectionChangedCause cause, {
+    String? html,
+    String? plainText,
+  }) async {
     if (controller.readOnly) {
       return;
     }
 
-    if (await controller.clipboardPaste()) {
+    if (await controller.clipboardPaste(html: html, plainText: plainText)) {
+      if (!mounted) return;
       bringIntoView(textEditingValue.selection.extent);
       return;
     }
@@ -904,6 +912,7 @@ class QuillRawEditorState extends EditorState
   @override
   void initState() {
     super.initState();
+    _webClipboard = WebClipboard(this);
     _shortcutActionsManager = EditorKeyboardShortcutsActionsManager(
       rawEditorState: this,
       context: context,
@@ -1060,6 +1069,7 @@ class QuillRawEditorState extends EditorState
 
   @override
   void dispose() {
+    _webClipboard.dispose();
     closeConnectionIfNeeded();
     _keyboardInsetSettleTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
