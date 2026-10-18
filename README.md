@@ -312,8 +312,7 @@ from `example/`. To include a native browser editor and plain-text field alongsi
 FlutterQuill, build that target with `flutter build web -t lib/clipboard_demo.dart --no-web-resources-cdn`,
 serve `build/web` over localhost, and open `/clipboard_lab.html`.
 
-Native app rich-paste support is unchanged. Native text copy still uses plain text
-unless a custom clipboard service can write HTML and plain text together. See the
+Native text copy still uses plain text and existing native clipboard APIs. See the
 [clipboard audit](doc/clipboard-audit.md) for scope and verification details.
 
 ## 🌐 Translation

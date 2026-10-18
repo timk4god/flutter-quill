@@ -5,17 +5,11 @@ import 'package:meta/meta.dart' show experimental;
 
 import '../../common/utils/quill_native_provider.dart';
 import 'clipboard_service.dart';
-import 'web_clipboard_stub.dart'
-    if (dart.library.js_interop) 'web_clipboard.dart';
 
 /// Default implementation of [ClipboardService] to support rich clipboard
 /// operations.
 @experimental
 class DefaultClipboardService extends ClipboardService {
-  @override
-  Future<void> copyRichText(String text, String html) =>
-      writeWebClipboard(text, html);
-
   @override
   Future<String?> getHtmlText() async {
     if (!(await QuillNativeProvider.instance.isSupported(

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show ClipboardData, Clipboard;
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
@@ -18,6 +19,8 @@ import '../document/style.dart';
 import '../editor/config/editor_config.dart';
 import '../editor/raw_editor/raw_editor_state.dart';
 import '../editor_toolbar_controller_shared/clipboard/clipboard_service_provider.dart';
+import '../editor_toolbar_controller_shared/clipboard/web_clipboard_stub.dart'
+    if (dart.library.js_interop) '../editor_toolbar_controller_shared/clipboard/web_clipboard.dart';
 import 'clipboard/quill_controller_paste.dart';
 import 'clipboard/quill_controller_rich_paste.dart';
 import 'clipboard/selection_html.dart';
@@ -535,6 +538,8 @@ class QuillController extends ChangeNotifier {
     Clipboard.setData(const ClipboardData(text: ''));
   }
 
+  /// Copy or cut the selection. [onCopy] supplies a synchronous writer for
+  /// browser events; otherwise the platform clipboard is used.
   @experimental
   bool clipboardSelection(
     bool copy, {
@@ -557,15 +562,12 @@ class QuillController extends ChangeNotifier {
 
     /// Get the deltas for the selection so they can be pasted into a QuillEditor with styles and embeds retained.
     _pasteDelta = document.toDelta().slice(selection.start, selection.end);
-    _pasteHtml = selectionToHtml(this);
+    _pasteHtml = kIsWeb || onCopy != null ? selectionToHtml(this) : '';
 
     if (onCopy != null) {
       onCopy(_pastePlainText, _pasteHtml);
     } else {
-      ClipboardServiceProvider.instance.copyRichText(
-        _pastePlainText,
-        _pasteHtml,
-      );
+      writeWebClipboard(_pastePlainText, _pasteHtml);
     }
     if (!copy) {
       final sel = selection;

@@ -23,26 +23,19 @@ extension QuillControllerRichPaste on QuillController {
   Future<bool> pasteHTML({String? html}) async {
     final clipboardService = ClipboardServiceProvider.instance;
 
-    Future<String?> getHTML() async {
-      final clipboardHtmlText = await clipboardService.getHtmlText();
-      if (clipboardHtmlText != null) {
-        return clipboardHtmlText;
-      }
-      final clipboardHtmlFile = await clipboardService.getHtmlFile();
-      if (clipboardHtmlFile != null) {
-        return clipboardHtmlFile;
-      }
-      return null;
-    }
-
-    final htmlText = html ?? await getHTML();
+    final htmlText =
+        html ??
+        await clipboardService.getHtmlText() ??
+        await clipboardService.getHtmlFile();
     if (htmlText != null) {
       final body = html_parser.parse(htmlText).body;
       // Docs uses a neutral <b> around whole documents. Treating it as inline
       // bold text flattens its paragraphs and lists in the HTML converter.
       for (final wrapper
           in body?.querySelectorAll('b[id^="docs-internal-guid-"]') ?? []) {
-        wrapper.replaceWith(html_parser.parseFragment(wrapper.innerHtml));
+        wrapper.replaceWith(
+          dom.DocumentFragment()..nodes.addAll(wrapper.nodes.toList()),
+        );
       }
       final htmlBody = body?.outerHtml;
       final clipboardDelta = HtmlToDelta(

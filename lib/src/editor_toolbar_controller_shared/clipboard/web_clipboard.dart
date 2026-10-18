@@ -84,19 +84,13 @@ class WebClipboard {
 /// One clipboard item with both representations; two writes overwrite each other.
 Future<void> writeWebClipboard(String text, String html) async {
   try {
-    final item = web.ClipboardItem(
-      {
-            'text/plain': web.Blob(
-              [text.toJS].toJS,
-              web.BlobPropertyBag(type: 'text/plain'),
-            ),
-            'text/html': web.Blob(
-              [html.toJS].toJS,
-              web.BlobPropertyBag(type: 'text/html'),
-            ),
-          }.jsify()
-          as JSObject,
+    final data = {'text/plain': text, 'text/html': html}.map(
+      (type, value) => MapEntry(
+        type,
+        web.Blob([value.toJS].toJS, web.BlobPropertyBag(type: type)),
+      ),
     );
+    final item = web.ClipboardItem(data.jsify() as JSObject);
     await web.window.navigator.clipboard.write([item].toJS).toDart;
   } catch (_) {
     // Unsupported API, insecure context, or denied permission: retain plain copy.
